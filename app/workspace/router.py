@@ -2,13 +2,14 @@ from typing import List
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 
+from app.permissions.dependences import require_permission
 from app.auth.dependences import get_current_user
 from app.user.models import User
 from core.database import get_db
 
-from . import schemas, models
+from . import schemas, models, services
 
 
 router = APIRouter()
@@ -31,14 +32,9 @@ async def create_workspace(
     await db.refresh(db_workspace)
 
     # 创建工作区角色：管理员、数据标注员、工程师
-    roles = [
-        models.WorkspaceRole(name="管理员", workspace_id=db_workspace.id),
-        models.WorkspaceRole(name="数据标注员", workspace_id=db_workspace.id),
-        models.WorkspaceRole(name="工程师", workspace_id=db_workspace.id)
-    ]
-
-    for role in roles:
-        db.add(role)
+    role_names = ["administrator", "labeler", "engineer"]
+    for role_name in role_names:
+        await services.RoleService.create_role(db, db_workspace.id, role_name)
 
     await db.commit()
 
@@ -46,7 +42,7 @@ async def create_workspace(
     admin_role = await db.execute(
         select(models.WorkspaceRole)
         .where(models.WorkspaceRole.workspace_id == db_workspace.id)
-        .where(models.WorkspaceRole.name == "管理员")
+        .where(models.WorkspaceRole.name == "administrator")
     )
     admin_role = admin_role.scalars().first()
 
@@ -78,26 +74,12 @@ async def get_user_workspaces(
     return workspaces
 
 
-@router.get("/{workspace_id}", response_model=schemas.WorkspaceResponse)
-async def get_workspace(
-        workspace_id: str,
-        db: AsyncSession = Depends(get_db),
-        current_user=Depends(get_current_user)
-):
-    """获取工作区详情"""
-    # 验证用户是否属于该工作区
-    # result = await db.execute(
-    #     select(models.WorkspaceUser)
-    #     .where(models.WorkspaceUser.workspace_id == workspace_id)
-    #     .where(models.WorkspaceUser.user_id == current_user.id)
-    # )
-    # if not result.scalars().first():
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="User not in workspace"
-    #     )
+async def _get_workspace_by_id(db: AsyncSession, request: Request):
+    """辅助函数：通过 ID 获取工作区"""
+    workspace_id = request.path_params.get("workspace_id", None)
+    if not workspace_id:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="未输入 workspace id")
 
-    # 获取工作区详情
     result = await db.execute(
         select(models.Workspace)
         .where(models.Workspace.id == workspace_id)
@@ -106,9 +88,23 @@ async def get_workspace(
     if not workspace:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Workspace not found"
+            detail="找不到工作区"
         )
+    return workspace
 
+
+@router.get("/{workspace_id}", response_model=schemas.WorkspaceResponse)
+async def get_workspace(
+        workspace_id: int,
+        workspace=Depends(
+            require_permission(
+                resource_type="workspace",
+                action="read",
+                get_resource=_get_workspace_by_id
+            )
+        )
+):
+    """获取工作区详情"""
     return workspace
 
 
@@ -122,10 +118,10 @@ async def invite_user(
     # 验证当前用户是否是工作区管理员
     result = await db.execute(
         select(models.WorkspaceUser)
-        .join(models.Role)
+        .join(models.WorkspaceRole)
         .where(models.WorkspaceUser.workspace_id == workspace_id)
         .where(models.WorkspaceUser.user_id == current_user.id)
-        .where(models.WorkspaceRole.name == "管理员")
+        .where(models.WorkspaceRole.name == "administrator")
     )
     if not result.scalars().first():
         raise HTTPException(
@@ -168,7 +164,7 @@ async def invite_user(
     )
     if result.scalars().first():
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail="User already in workspace"
         )
 

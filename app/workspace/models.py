@@ -27,6 +27,13 @@ class WorkspaceRole(BaseModel):
 
     # 关系
     workspace_users = relationship("WorkspaceUser", back_populates="role")
+    role_permissions = relationship("RolePermission", back_populates="role")
+    permissions = relationship(
+        "Permission",
+        secondary="role_permissions",
+        back_populates="roles",
+        overlaps="role_permissions"
+    )
 
 
 class WorkspaceUser(BaseModel):
