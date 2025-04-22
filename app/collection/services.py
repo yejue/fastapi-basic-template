@@ -39,6 +39,13 @@ class CollectionService:
         return collection
 
     @staticmethod
+    async def get_collections(db: AsyncSession):
+        """获取集合列表"""
+        stmt = select(workspace_models.WorkspaceCollection)
+        collections = await db.scalars(stmt)
+        return collections
+
+    @staticmethod
     async def create_collection_item(db: AsyncSession, item_data: schemas.CollectionItemCreate):
         """创建集合项"""
         # 检查集合项是否已存在

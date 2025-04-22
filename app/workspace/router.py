@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from app.permissions.dependences import require_permission
 from app.auth.dependences import get_current_user
 from app.user.models import User
+
+
 from core.database import get_db
 
 from . import schemas, models, services
@@ -72,6 +74,22 @@ async def get_user_workspaces(
     )
     workspaces = result.scalars().all()
     return workspaces
+
+
+@router.post("/user-workspaces/{workspace_id}/collections", response_model=schemas.WorkspaceCollectionResponse)
+async def create_collection_in_workspace(
+    workspace_id: int,
+    collection_data: schemas.WorkspaceCollectionCreate,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_permission(
+        resource_type="workspace.collection",
+        action="create",
+        get_resource=lambda db, request: None
+    ))
+):
+    """在工作区中创建集合"""
+    return await services.WorkspaceCollectionService.create_collection(db, workspace_id, collection_data)
 
 
 async def _get_workspace_by_id(db: AsyncSession, request: Request):
