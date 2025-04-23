@@ -7,13 +7,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import api_router
-from core.database import init_db
+from core.database import init_db, db_session
 
 
 @asynccontextmanager
 async def lifespan(app_: FastAPI):
     # 初始化数据库
     await init_db()
+
+    # 创建默认权限
+    async with db_session() as async_session:
+        ...
+
     yield
 
 
