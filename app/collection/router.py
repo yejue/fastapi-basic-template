@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependences import get_current_user, get_current_superuser
-from app.permissions.dependences import require_permission
 
 from core.database import get_db
 from . import schemas, services
@@ -27,11 +26,6 @@ async def create_collection(
 async def get_collections(
     current_user=Depends(get_current_superuser),
     db: AsyncSession = Depends(get_db),
-    _=require_permission(
-        resource_type="collection",
-        action="read",
-        get_resource=lambda db: None
-    )
 ):
     """获取集合列表"""
     return await services.CollectionService.get_collections(db)
