@@ -7,7 +7,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import api_router
-from app.permissions.init_policies import create_default_permissions
 from core.database import init_db, db_session
 
 
@@ -18,7 +17,8 @@ async def lifespan(app_: FastAPI):
 
     # 创建默认权限
     async with db_session() as async_session:
-        await create_default_permissions(async_session)
+        ...
+
     yield
 
 

@@ -14,6 +14,7 @@ class Workspace(BaseModel):
 
     # 关系
     workspace_users = relationship("WorkspaceUser", back_populates="workspace")
+    workspace_roles = relationship("WorkspaceRole", back_populates="workspace")
     collections = relationship("WorkspaceCollection", back_populates="workspace")
 
 
@@ -26,14 +27,9 @@ class WorkspaceRole(BaseModel):
     workspace_id = Column(Integer, ForeignKey("workspaces.id"))
 
     # 关系
-    workspace_users = relationship("WorkspaceUser", back_populates="role")
-    role_permissions = relationship("RolePermission", back_populates="role")
-    permissions = relationship(
-        "Permission",
-        secondary="role_permissions",
-        back_populates="roles",
-        overlaps="role_permissions"
-    )
+    workspace = relationship("Workspace", back_populates="workspace_roles")
+    workspace_users = relationship("WorkspaceUser", back_populates="workspace_role")
+    workspace_permissions = relationship("WorkspaceRolePermissions", back_populates="workspace_roles")
 
 
 class WorkspaceUser(BaseModel):
@@ -48,7 +44,8 @@ class WorkspaceUser(BaseModel):
     # 关系
     user = relationship("User", back_populates="workspace_users")
     workspace = relationship("Workspace", back_populates="workspace_users")
-    role = relationship("WorkspaceRole", back_populates="workspace_users")
+    workspace_role = relationship("WorkspaceRole", back_populates="workspace_users")
+    workspace_permissions = relationship("WorkspaceUserPermissions", back_populates="workspace_user")
 
 
 class WorkspaceCollection(BaseModel):
