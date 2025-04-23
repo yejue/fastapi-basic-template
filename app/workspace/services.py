@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 
 from fastapi import HTTPException, status
 
@@ -156,6 +156,15 @@ class WorkspaceCollectionService:
         return collection
 
     @staticmethod
+    async def delete_collection_by_id(db: AsyncSession, collection_id: int):
+        stmt = select(models.WorkspaceCollection).where(models.WorkspaceCollection.id == collection_id)
+        collection = await db.scalar(stmt)
+        if collection:
+            await db.delete(collection)
+            await db.commit()
+        return {"message": f"集合 {collection.name} 已删除"}
+
+    @staticmethod
     async def get_collections(db: AsyncSession, workspace_id: int):
         """获取工作区中的集合列表"""
         stmt = select(models.WorkspaceCollection).where(models.WorkspaceCollection.workspace_id == workspace_id)
@@ -167,8 +176,10 @@ class WorkspaceCollectionService:
         """创建集合项"""
         # 检查集合项是否已存在
         stmt = select(models.WorkspaceCollectionItem).where(
-            models.WorkspaceCollectionItem.name == item_data.name,
-            models.WorkspaceCollectionItem.collection_id == item_data.collection_id
+            and_(
+                models.WorkspaceCollectionItem.name == item_data.name,
+                models.WorkspaceCollectionItem.collection_id == item_data.collection_id
+            )
         )
         existing_item = await db.scalar(stmt)
         if existing_item:
@@ -180,6 +191,16 @@ class WorkspaceCollectionService:
         await db.commit()
         await db.refresh(item)
         return item
+
+    @staticmethod
+    async def delete_collection_item(db: AsyncSession, item_id: int):
+        """删除集合项"""
+        stmt = select(models.WorkspaceCollectionItem).where(models.WorkspaceCollectionItem.id == item_id)
+        item = await db.scalar(stmt)
+        if item:
+            await db.delete(item)
+            await db.commit()
+        return {"message": f"Item {item.name} has been deleted."}
 
     @staticmethod
     async def get_collection_items(db: AsyncSession, collection_id: int):
@@ -194,19 +215,64 @@ class WorkspaceCollectionService:
 class WorkspacePermissionService:
 
     @staticmethod
+    async def assign_role_permission(
+        db: AsyncSession,
+        permission_data: schemas.WorkspaceRolePermissionCreate
+    ):
+        """为角色分配权限"""
+        # 验证角色是否存在
+        stmt = select(models.WorkspaceRole).where(
+            and_(
+                models.WorkspaceRole.role_id == permission_data.role_id,
+                models.WorkspaceRole.workspace_id == permission_data.workspace_id
+            )
+        )
+        role = await db.scalar(stmt)
+
+        if not role:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Role does not exist or not in the workspace"
+            )
+
+        # 检查权限是否已存在
+        stmt = select(WorkspaceRolePermissions).where(
+            and_(
+                WorkspaceRolePermissions.role_id == permission_data.role_id,
+                WorkspaceRolePermissions.path == permission_data.path,
+                WorkspaceRolePermissions.action == permission_data.action
+            )
+        )
+        existing_permission = await db.scalar(stmt)
+
+        if existing_permission:
+            # 更新现有权限
+            existing_permission.allow = permission_data.allow
+        else:
+            # 创建新权限
+            permission = WorkspaceRolePermissions(
+                role_id=permission_data.role_id,
+                path=permission_data.path,
+                action=permission_data.action,
+                allow=permission_data.allow
+            )
+            db.add(permission)
+
+        await db.commit()
+        return {"message": "角色权限分配成功"}
+
+    @staticmethod
     async def assign_user_permission(
-            db: AsyncSession,
-            workspace_id: int,
-            user_id: int,
-            path: str,
-            action: str,
-            allow: bool = True
+        db: AsyncSession,
+        permission_data: schemas.WorkspaceUserPermissionCreate
     ):
         """为用户分配工作区内的权限"""
         # 检查用户是否在工作区内
         stmt = select(models.WorkspaceUser).where(
-            models.WorkspaceUser.workspace_id == workspace_id,
-            models.WorkspaceUser.user_id == user_id
+            and_(
+                models.WorkspaceUser.workspace_id == permission_data.workspace_id,
+                models.WorkspaceUser.user_id == permission_data.user_id
+            )
         )
         workspace_user = await db.scalar(stmt)
 
@@ -218,35 +284,39 @@ class WorkspacePermissionService:
 
         # 检查权限是否已存在
         stmt = select(WorkspaceUserPermissions).where(
-            WorkspaceUserPermissions.workspace_user_id == workspace_user.id,
-            WorkspaceUserPermissions.path == path,
-            WorkspaceUserPermissions.action == action
+            and_(
+                WorkspaceUserPermissions.workspace_user_id == workspace_user.id,
+                WorkspaceUserPermissions.path == permission_data.path,
+                WorkspaceUserPermissions.action == permission_data.action
+            )
         )
         existing_permission = await db.scalar(stmt)
 
         if existing_permission:
             # 更新现有权限
-            existing_permission.allow = allow
+            existing_permission.allow = permission_data.allow
         else:
             # 创建新权限
             permission = WorkspaceUserPermissions(
                 workspace_user_id=workspace_user.id,
-                path=path,
-                action=action,
-                allow=allow
+                path=permission_data.path,
+                action=permission_data.action,
+                allow=permission_data.allow
             )
             db.add(permission)
 
         await db.commit()
-        return {"message": "权限分配成功"}
+        return {"message": "用户权限分配成功"}
 
     @staticmethod
     async def get_user_permissions(db: AsyncSession, workspace_id: int, user_id: int):
         """获取用户在工作区内的所有权限"""
         # 获取用户在工作区的关系
         stmt = select(models.WorkspaceUser).where(
-            models.WorkspaceUser.workspace_id == workspace_id,
-            models.WorkspaceUser.user_id == user_id
+            and_(
+                models.WorkspaceUser.workspace_id == workspace_id,
+                models.WorkspaceUser.user_id == user_id
+            )
         )
         workspace_user = await db.scalar(stmt)
 

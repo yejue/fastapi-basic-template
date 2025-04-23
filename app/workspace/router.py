@@ -2,7 +2,7 @@ from typing import List
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth.dependences import get_current_user
 from app.user.models import User
@@ -50,6 +50,7 @@ async def get_user_workspaces(
 @router.post(
     "/user-workspaces/{workspace_id}/collections",
     response_model=schemas.WorkspaceCollectionResponse,
+    status_code=status.HTTP_201_CREATED
 )
 async def create_collection_in_workspace(
     workspace_id: int,
@@ -59,6 +60,81 @@ async def create_collection_in_workspace(
 ):
     """在工作区中创建集合"""
     return await services.WorkspaceCollectionService.create_collection(db, workspace_id, collection_data)
+
+
+@router.delete(
+    "/user-workspaces/{workspace_id}/collections/{collection_id}",
+)
+async def delete_collection_in_workspace(
+    workspace_id: int,
+    collection_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_workspace_permission("/workspaces/{workspace_id}/collections/{collection_id}", action="delete"))
+):
+    return await services.WorkspaceCollectionService.delete_collection_by_id(db, collection_id)
+
+
+@router.post(
+    "/user-workspaces/{workspace_id}/collections/{collection_id}/items",
+    response_model=schemas.WorkspaceCollectionItemResponse,
+    status_code=status.HTTP_201_CREATED
+)
+async def create_item_in_workspace(
+    workspace_id: int,
+    collection_id: int,
+    item_data: schemas.WorkspaceCollectionItemCreate,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(
+        require_workspace_permission(
+            "/workspaces/{workspace_id}/collections/{collection_id}/items}",
+            action="create")
+    )
+):
+    item_data.collection_id = collection_id
+    return await services.WorkspaceCollectionService.create_collection_item(db, item_data)
+
+
+@router.delete(
+    "/user-workspaces/{workspace_id}/collections/{collection_id}/items/{item_id}",
+    status_code=status.HTTP_200_OK
+)
+async def delete_item_in_workspace(
+    workspace_id: int,
+    collection_id: int,
+    item_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(
+        require_workspace_permission(
+            "/workspaces/{workspace_id}/collections/{collection_id}/items/{item_id}",
+            action="delete")
+    )
+):
+    return await services.WorkspaceCollectionService.delete_collection_item(db, item_id)
+
+
+@router.get(
+    "/user-workspaces/{workspace_id}/collections",
+    response_model=List[schemas.WorkspaceCollectionResponse]
+)
+async def get_workspace_collections(
+    workspace_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_workspace_permission("/workspaces/{workspace_id}/collections", action="create"))
+):
+    return await services.WorkspaceCollectionService.get_collections(db, workspace_id=workspace_id)
+
+
+@router.get(
+    "/user-workspaces/{workspace_id}/collections/{collection_id}/items",
+    response_model=List[schemas.WorkspaceCollectionItemResponse]
+)
+async def get_workspace_collection_items(
+    workspace_id: int,
+    collection_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_workspace_permission("/workspaces/{workspace_id}/collections/{collection_id}/items", action="read"))
+):
+    return await services.WorkspaceCollectionService.get_collection_items(db, collection_id)
 
 
 @router.get("/{workspace_id}", response_model=schemas.WorkspaceResponse)
@@ -141,3 +217,31 @@ async def invite_user(
     await db.commit()
 
     return {"message": "User invited successfully"}
+
+
+@router.post("/workspaces/{workspace_id}/roles/{role_id}/permissions", status_code=status.HTTP_201_CREATED)
+async def assign_role_permission(
+    workspace_id: int,
+    role_id: int,
+    permission_data: schemas.WorkspaceRolePermissionCreate,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_workspace_permission("/workspaces/{workspace_id}/roles/{role_id}/permissions", "create"))
+):
+    """为工作区内的角色分配权限"""
+    permission_data.role_id = role_id
+    permission_data.workspace_id = workspace_id
+    return await services.WorkspacePermissionService.assign_role_permission(db, permission_data)
+
+
+@router.post("/workspaces/{workspace_id}/users/{user_id}/permissions", status_code=status.HTTP_201_CREATED)
+async def assign_user_permission(
+        workspace_id: int,
+        user_id: int,
+        permission_data: schemas.WorkspaceUserPermissionCreate,
+        db: AsyncSession = Depends(get_db),
+        _=Depends(require_workspace_permission("/workspaces/{workspace_id}/users/{user_id}/permissions", "create"))
+):
+    """为工作区内的用户分配权限"""
+    permission_data.workspace_id = workspace_id
+    permission_data.user_id = user_id
+    return await services.WorkspacePermissionService.assign_user_permission(db, permission_data)
