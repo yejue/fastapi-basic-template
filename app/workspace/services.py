@@ -109,9 +109,9 @@ class RoleService:
         """为成员角色分配部分权限"""
         # 成员可以读取和创建，但不能删除
         permissions = [
-            WorkspaceRolePermissions(workspace_role_id=role_id, path=f"/workspaces/{workspace_id}", action="read", allow=True),
-            WorkspaceRolePermissions(workspace_role_id=role_id, path=f"/workspaces/{workspace_id}", action="create", allow=True),
-            WorkspaceRolePermissions(workspace_role_id=role_id, path=f"/workspaces/{workspace_id}", action="update", allow=True),
+            WorkspaceRolePermissions(workspace_role_id=role_id, path=f"/workspaces/{workspace_id}/*", action="read", allow=True),
+            WorkspaceRolePermissions(workspace_role_id=role_id, path=f"/workspaces/{workspace_id}/*", action="create", allow=True),
+            WorkspaceRolePermissions(workspace_role_id=role_id, path=f"/workspaces/{workspace_id}/*", action="update", allow=True),
         ]
         db.add_all(permissions)
 
@@ -120,7 +120,7 @@ class RoleService:
         """为查看者角色分配只读权限"""
         # 查看者只有读取权限
         permissions = [
-            WorkspaceRolePermissions(workspace_role_id=role_id, path=f"/workspaces/{workspace_id}", action="read", allow=True),
+            WorkspaceRolePermissions(workspace_role_id=role_id, path=f"/workspaces/{workspace_id}/*", action="read", allow=True),
         ]
         db.add_all(permissions)
 
