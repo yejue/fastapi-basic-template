@@ -64,7 +64,7 @@ class WorkspaceCollectionItemBase(BaseModel):
 
 
 class WorkspaceCollectionItemCreate(WorkspaceCollectionItemBase):
-    collection_id: int
+    collection_id: Optional[int] = None
 
 
 class WorkspaceCollectionItemResponse(WorkspaceCollectionItemBase):
@@ -74,3 +74,30 @@ class WorkspaceCollectionItemResponse(WorkspaceCollectionItemBase):
         from_attribute: bool = True
 
 
+# 工作区权限相关
+class WorkspacePermissionBase(BaseModel):
+    path: str
+    action: str
+    allow: bool = True
+
+
+class WorkspaceRolePermissionCreate(WorkspacePermissionBase):
+    role_id: Optional[int] = None       # 从路径参数获取
+    workspace_id: Optional[int] = None  # 从路径参数获取
+
+
+class WorkspaceUserPermissionCreate(WorkspacePermissionBase):
+    user_id: Optional[int] = None       # 从路径参数获取
+    workspace_id: Optional[int] = None  # 从路径参数获取
+
+
+class WorkspacePermissionResponse(WorkspacePermissionBase):
+    id: int
+
+    class Config:
+        from_attribute = True
+
+
+class WorkspaceUserPermissionDetails(BaseModel):
+    user_permissions: list[WorkspacePermissionBase]
+    role_permissions: list[WorkspacePermissionBase]
