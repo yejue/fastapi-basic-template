@@ -62,7 +62,8 @@ class WorkspacePermissionEngine:
 
         return False
 
-    def _extract_workspace_id(self, path: str) -> Optional[int]:
+    @staticmethod
+    def _extract_workspace_id(path: str) -> Optional[int]:
         """从路径中提取工作区ID"""
         parts = path.split('/')
         for i, part in enumerate(parts):
@@ -73,20 +74,41 @@ class WorkspacePermissionEngine:
                     return None
         return None
 
-    def _path_matches(self, request_path: str, permission_path: str) -> bool:
+    @staticmethod
+    def _path_matches(request_path: str, permission_path: str) -> bool:
         """检查请求路径是否匹配权限路径"""
-        # 将通配符替换为正则表达式
-        pattern = permission_path.replace("*", "[^/]+")
+        # 特殊情况：权限路径以 /* 结尾，表示匹配该路径下的所有子路径
+        if permission_path.endswith("/*"):
+            base_path = permission_path[:-2]
+            return request_path == base_path or request_path.startswith(base_path + "/")
 
-        # 将路径参数替换为正则表达式
+        # 特殊情况：完全通配符
+        if permission_path == "*":
+            return True
+
+        # 将路径转换为正则表达式模式
         import re
-        pattern = re.sub(r"\{[^}]+\}", "[^/]+", pattern)
+        pattern = "^"
 
-        # 添加开始和结束标记
-        pattern = f"^{pattern}$"
+        # 拆分路径段
+        path_segments = permission_path.split("/")
+        for segment in path_segments:
+            if segment == "*":
+                # 单星号匹配一个路径段
+                pattern += "/[^/]*"
+            elif segment.startswith("{") and segment.endswith("}"):
+                # 参数占位符匹配一个路径段
+                pattern += "/[^/]+"
+            elif segment:
+                # 普通路径段精确匹配
+                pattern += "/" + re.escape(segment)
 
+        pattern += "$"
+
+        # 移除多余的起始斜杠
+        pattern = pattern.replace("^/", "^")
+        print(f"target: {request_path}, pattern: {pattern}")
         # 匹配路径
-        print(f"target: {request_path} pattern: {pattern}")
         return re.match(pattern, request_path) is not None
 
 
