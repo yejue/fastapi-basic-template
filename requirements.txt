@@ -1,0 +1,6 @@
+fastapi
+sqlalchemy
+jmespath
+jose
+pydantic
+aiosqlite
