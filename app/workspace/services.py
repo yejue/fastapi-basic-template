@@ -223,7 +223,7 @@ class WorkspacePermissionService:
         # 验证角色是否存在
         stmt = select(models.WorkspaceRole).where(
             and_(
-                models.WorkspaceRole.role_id == permission_data.role_id,
+                models.WorkspaceRole.id == permission_data.role_id,
                 models.WorkspaceRole.workspace_id == permission_data.workspace_id
             )
         )
@@ -238,7 +238,7 @@ class WorkspacePermissionService:
         # 检查权限是否已存在
         stmt = select(WorkspaceRolePermissions).where(
             and_(
-                WorkspaceRolePermissions.role_id == permission_data.role_id,
+                WorkspaceRolePermissions.workspace_role_id == permission_data.role_id,
                 WorkspaceRolePermissions.path == permission_data.path,
                 WorkspaceRolePermissions.action == permission_data.action
             )
@@ -251,7 +251,7 @@ class WorkspacePermissionService:
         else:
             # 创建新权限
             permission = WorkspaceRolePermissions(
-                role_id=permission_data.role_id,
+                workspace_role_id=permission_data.role_id,
                 path=permission_data.path,
                 action=permission_data.action,
                 allow=permission_data.allow

@@ -6,8 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth.dependences import get_current_user
 from app.user.models import User
-from app.permissions.engine import require_workspace_permission
-
+from app.permissions.engine import require_workspace_permission, WorkspacePermissionEngine
 
 from core.database import get_db
 
@@ -225,23 +224,45 @@ async def assign_role_permission(
     role_id: int,
     permission_data: schemas.WorkspaceRolePermissionCreate,
     db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
     _=Depends(require_workspace_permission("/workspaces/{workspace_id}/roles/{role_id}/permissions", "create"))
 ):
     """为工作区内的角色分配权限"""
     permission_data.role_id = role_id
     permission_data.workspace_id = workspace_id
+
+    # 校验使用者权限
+    engine = WorkspacePermissionEngine(db, current_user)
+    has_permission = await engine.check_permission(
+        path=permission_data.path,
+        action=permission_data.action
+    )
+    if not has_permission:
+        raise HTTPException(status_code=403, detail="没有分配该权限的权限")
+
     return await services.WorkspacePermissionService.assign_role_permission(db, permission_data)
 
 
 @router.post("/workspaces/{workspace_id}/users/{user_id}/permissions", status_code=status.HTTP_201_CREATED)
 async def assign_user_permission(
-        workspace_id: int,
-        user_id: int,
-        permission_data: schemas.WorkspaceUserPermissionCreate,
-        db: AsyncSession = Depends(get_db),
-        _=Depends(require_workspace_permission("/workspaces/{workspace_id}/users/{user_id}/permissions", "create"))
+    workspace_id: int,
+    user_id: int,
+    permission_data: schemas.WorkspaceUserPermissionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+    _=Depends(require_workspace_permission("/workspaces/{workspace_id}/users/{user_id}/permissions", "create"))
 ):
     """为工作区内的用户分配权限"""
     permission_data.workspace_id = workspace_id
     permission_data.user_id = user_id
+
+    # 校验使用者权限
+    engine = WorkspacePermissionEngine(db, current_user)
+    has_permission = await engine.check_permission(
+        path=permission_data.path,
+        action=permission_data.action
+    )
+    if not has_permission:
+        raise HTTPException(status_code=403, detail="没有分配该权限的权限")
+
     return await services.WorkspacePermissionService.assign_user_permission(db, permission_data)
