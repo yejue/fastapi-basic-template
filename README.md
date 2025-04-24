@@ -124,7 +124,6 @@ async def create_item(wid: int, ...):
 ### 4. 权限分配 API
 | 接口路径                                  | 说明                     | 权限要求         |
 |-----------------------------------------|--------------------------|------------------|
-| `POST /permissions/roles/{role_id}/permissions` | 全局角色分配（超级用户） | `get_current_superuser` |
 | `POST /workspaces/{wid}/roles/{rid}/permissions` | 工作区角色权限分配       | 工作区管理员权限 |
 | `POST /workspaces/{wid}/users/{uid}/permissions` | 工作区用户权限分配       | 工作区管理员权限 |
 
