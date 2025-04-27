@@ -1,5 +1,5 @@
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi import HTTPException, status
 
@@ -140,7 +140,7 @@ class WorkspaceCollectionService:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="集合已存在")
 
         # 创建新集合
-        collection = models.WorkspaceCollection(**collection_data.dict(), workspace_id=workspace_id)
+        collection = models.WorkspaceCollection(**collection_data.model_dump(), workspace_id=workspace_id)
         db.add(collection)
         await db.commit()
         await db.refresh(collection)
@@ -327,7 +327,7 @@ class WorkspacePermissionService:
             )
 
         # 获取用户直接权限
-        stmt = select(WorkspaceUserPermissions).where(
+        stmt = select(WorkspaceUserPermissions).filter(
             WorkspaceUserPermissions.workspace_user_id == workspace_user.id
         )
         user_permissions = await db.scalars(stmt)

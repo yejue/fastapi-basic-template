@@ -9,6 +9,7 @@ from app.user.models import User
 from app.permissions.engine import require_workspace_permission, WorkspacePermissionEngine
 
 from core.database import get_db
+from core.responses import resp_
 
 from . import schemas, models, services
 
@@ -118,14 +119,14 @@ async def delete_item_in_workspace(
 async def get_workspace_collections(
     workspace_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_workspace_permission("/workspaces/{workspace_id}/collections", action="create"))
+    _=Depends(require_workspace_permission("/workspaces/{workspace_id}/collections", action="read"))
 ):
     return await services.WorkspaceCollectionService.get_collections(db, workspace_id=workspace_id)
 
 
 @router.get(
     "/user-workspaces/{workspace_id}/collections/{collection_id}/items",
-    response_model=List[schemas.WorkspaceCollectionItemResponse]
+    response_model=resp_(List[schemas.WorkspaceCollectionItemResponse])
 )
 async def get_workspace_collection_items(
     workspace_id: int,
@@ -133,7 +134,7 @@ async def get_workspace_collection_items(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_workspace_permission("/workspaces/{workspace_id}/collections/{collection_id}/items", action="read"))
 ):
-    return await services.WorkspaceCollectionService.get_collection_items(db, collection_id)
+    return {"data": await services.WorkspaceCollectionService.get_collection_items(db, collection_id)}
 
 
 @router.get("/{workspace_id}", response_model=schemas.WorkspaceResponse)
