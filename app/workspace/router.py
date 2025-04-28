@@ -126,7 +126,8 @@ async def get_workspace_collections(
 
 @router.get(
     "/user-workspaces/{workspace_id}/collections/{collection_id}/items",
-    response_model=resp_(List[schemas.WorkspaceCollectionItemResponse])
+    response_model=resp_(List[schemas.WorkspaceCollectionItemResponse]),
+    response_model_exclude_none=True
 )
 async def get_workspace_collection_items(
     workspace_id: int,
